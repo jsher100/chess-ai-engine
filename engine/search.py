@@ -85,6 +85,78 @@ def order_moves(board: chess.Board) -> List[chess.Move]:
     return captures + non_captures
 
 
+def quiescence(
+    board: chess.Board,
+    alpha: float,
+    beta: float,
+    node_count: Optional[List[int]] = None,
+) -> int:
+    """
+    Quiescence search: extends the search past the depth horizon along
+    capture sequences only, so alphabeta doesn't stop mid-exchange and
+    misreport a piece as "won" right before it gets recaptured.
+
+    Same terminal test as alphabeta. Otherwise, stand_pat = eval(board) is
+    used as the starting bound for the side to move (White: alpha =
+    max(alpha, stand_pat); Black: beta = min(beta, stand_pat)) — the side
+    to move is never forced to capture if simply "standing pat" is best —
+    and search cuts off once beta <= alpha. Remaining moves are searched
+    MVV-LVA-ordered captures only, recursively, with the same max/min logic
+    as alphabeta.
+    """
+    if node_count is not None:
+        node_count[0] += 1
+
+    if board.is_checkmate():
+        return -10000 if board.turn == chess.WHITE else 10000
+
+    if (
+        board.is_stalemate()
+        or board.is_insufficient_material()
+        or board.can_claim_draw()
+        or board.is_game_over()
+    ):
+        return 0
+
+    stand_pat = eval(board)
+    moves = order_moves(board)
+
+    if board.turn == chess.WHITE:
+        alpha = max(alpha, stand_pat)
+        if beta <= alpha:
+            return stand_pat
+        best_score = stand_pat
+        for move in moves:
+            if not board.is_capture(move):
+                break  # order_moves puts all captures first
+            board.push(move)
+            score = quiescence(board, alpha, beta, node_count)
+            board.pop()
+            if score > best_score:
+                best_score = score
+            alpha = max(alpha, best_score)
+            if beta <= alpha:
+                break
+        return best_score
+    else:
+        beta = min(beta, stand_pat)
+        if beta <= alpha:
+            return stand_pat
+        best_score = stand_pat
+        for move in moves:
+            if not board.is_capture(move):
+                break  # order_moves puts all captures first
+            board.push(move)
+            score = quiescence(board, alpha, beta, node_count)
+            board.pop()
+            if score < best_score:
+                best_score = score
+            beta = min(beta, best_score)
+            if beta <= alpha:
+                break
+        return best_score
+
+
 def alphabeta(
     board: chess.Board,
     depth: int,
@@ -92,14 +164,15 @@ def alphabeta(
     beta: float,
     node_count: Optional[List[int]] = None,
     ordered: bool = False,
+    quiesce: bool = False,
 ) -> Tuple[int, Optional[chess.Move]]:
     """
     Minimax search with alpha-beta pruning.
     White maximizes, Black minimizes.
 
-    Same terminal test and eval as minimax(). Prunes a branch once
-    beta <= alpha (the opponent already has a better alternative elsewhere,
-    so the remaining siblings cannot change the outcome).
+    Same terminal test as minimax(). Prunes a branch once beta <= alpha
+    (the opponent already has a better alternative elsewhere, so the
+    remaining siblings cannot change the outcome).
 
     If node_count is given (a single-element list used as a mutable counter),
     it is incremented once for every position visited.
@@ -107,6 +180,9 @@ def alphabeta(
     If ordered=True, moves are generated via order_moves() (MVV-LVA captures
     first, then non-captures) instead of board.legal_moves order, so that
     strong moves are searched first and more branches get pruned.
+
+    If quiesce=True, the depth-0 leaf score comes from quiescence() instead
+    of a raw eval(board) call, so the search doesn't stop mid-exchange.
     """
     if node_count is not None:
         node_count[0] += 1
@@ -123,8 +199,10 @@ def alphabeta(
     ):
         return (0, None)
 
-    # Base case: only call eval when depth == 0 and position is not terminal
+    # Base case: only call eval/quiescence when depth == 0 and not terminal
     if depth == 0:
+        if quiesce:
+            return (quiescence(board, alpha, beta, node_count), None)
         return (eval(board), None)
 
     moves = order_moves(board) if ordered else board.legal_moves
@@ -134,7 +212,9 @@ def alphabeta(
         best_move = None
         for move in moves:
             board.push(move)
-            score, _ = alphabeta(board, depth - 1, alpha, beta, node_count, ordered)
+            score, _ = alphabeta(
+                board, depth - 1, alpha, beta, node_count, ordered, quiesce
+            )
             board.pop()
             if score > best_score:
                 best_score = score
@@ -148,7 +228,9 @@ def alphabeta(
         best_move = None
         for move in moves:
             board.push(move)
-            score, _ = alphabeta(board, depth - 1, alpha, beta, node_count, ordered)
+            score, _ = alphabeta(
+                board, depth - 1, alpha, beta, node_count, ordered, quiesce
+            )
             board.pop()
             if score < best_score:
                 best_score = score

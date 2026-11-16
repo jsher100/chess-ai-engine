@@ -125,3 +125,30 @@ def test_ordered_alphabeta_visits_fewer_nodes_than_unordered_middlegame():
 
     assert ordered_nodes[0] < unordered_nodes[0]
 
+
+def test_alphabeta_depth1_without_quiescence_shows_horizon_effect():
+    """
+    Without quiescence, alphabeta depth 1 on the middlegame FEN is fooled by
+    the horizon effect: it greedily grabs a pawn (Bxf7+ or Nxe5) and reports
+    a score of +1, never looking far enough ahead to see the capturing piece
+    gets recaptured.
+    """
+    board = chess.Board(MIDDLEGAME_FEN)
+    score, move = alphabeta(board, 1, float("-inf"), float("inf"), quiesce=False)
+    assert board.is_capture(move)
+    assert board.san(move) in ("Bxf7+", "Nxe5")
+    assert score == 1
+
+
+def test_alphabeta_depth1_with_quiescence_resolves_horizon_effect():
+    """
+    With quiescence search extending capture sequences past the depth-1
+    horizon, alphabeta correctly sees that grabbing the pawn just loses it
+    back, so it prefers a quiet move and reports the true, materially-even
+    score of 0.
+    """
+    board = chess.Board(MIDDLEGAME_FEN)
+    score, move = alphabeta(board, 1, float("-inf"), float("inf"), quiesce=True)
+    assert not board.is_capture(move)
+    assert score == 0
+

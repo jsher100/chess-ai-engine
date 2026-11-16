@@ -15,11 +15,11 @@ def bench_minimax(board: chess.Board, depth: int):
     return score, move, nodes[0], elapsed
 
 
-def bench_alphabeta(board: chess.Board, depth: int, ordered: bool):
+def bench_alphabeta(board: chess.Board, depth: int, ordered: bool, quiesce: bool = False):
     nodes = [0]
     start = time.perf_counter()
     score, move = alphabeta(
-        board, depth, float("-inf"), float("inf"), nodes, ordered
+        board, depth, float("-inf"), float("inf"), nodes, ordered, quiesce
     )
     elapsed = time.perf_counter() - start
     return score, move, nodes[0], elapsed
@@ -42,6 +42,10 @@ def main() -> None:
     report("minimax:", *bench_minimax(board, depth))
     report("alphabeta (unordered):", *bench_alphabeta(board, depth, ordered=False))
     report("alphabeta (ordered):", *bench_alphabeta(board, depth, ordered=True))
+    report(
+        "alphabeta (ordered+quiesce):",
+        *bench_alphabeta(board, depth, ordered=True, quiesce=True),
+    )
 
 
 if __name__ == "__main__":

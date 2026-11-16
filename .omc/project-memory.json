@@ -32,20 +32,20 @@
   "hotPaths": [
     {
       "path": "tests/test_engine.py",
-      "accessCount": 7,
-      "lastAccessed": 1794793882046,
+      "accessCount": 9,
+      "lastAccessed": 1794795214015,
       "type": "file"
     },
     {
       "path": "engine/search.py",
-      "accessCount": 5,
-      "lastAccessed": 1794793848375,
+      "accessCount": 7,
+      "lastAccessed": 1794795241701,
       "type": "file"
     },
     {
       "path": "bench.py",
-      "accessCount": 2,
-      "lastAccessed": 1794793857552,
+      "accessCount": 5,
+      "lastAccessed": 1794795306773,
       "type": "file"
     },
     {
