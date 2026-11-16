@@ -9,6 +9,7 @@ A lightweight Python chess engine implementing static material evaluation, depth
 - **Alpha-Beta Pruning (`engine/search.py`)**: Significantly cuts down the search tree by pruning branches where $\beta \le \alpha$, preserving exact minimax evaluation scores while visiting a fraction of the nodes.
 - **MVV-LVA Move Ordering (`engine/search.py`)**: Prioritizes captures using Most Valuable Victim – Least Valuable Attacker ordering, promoting early alpha-beta cutoffs.
 - **Benchmarking Suite (`bench.py`)**: Measures execution time, node count, and move selection across search configurations on opening and middlegame positions.
+- **Browser UI (`app.py`)**: A small Flask app that serves an interactive chessboard so you can play the engine in your browser.
 
 ## Project Structure
 
@@ -21,8 +22,11 @@ chess-ai-engine/
 ├── tests/
 │   ├── __init__.py
 │   └── test_engine.py     # Test suite verifying search correctness, scores, and pruning
+├── templates/
+│   └── index.html         # Chessboard UI (chessboard.js + chess.js), served by app.py
+├── app.py                 # Flask app: GET / serves the board, POST /move plays a turn
 ├── bench.py               # Benchmark script comparing minimax vs. alpha-beta
-├── requirements.txt       # Project dependencies (python-chess, pytest)
+├── requirements.txt       # Project dependencies (python-chess, pytest, Flask)
 └── README.md
 ```
 
@@ -96,3 +100,21 @@ score, best_move = alphabeta(
 )
 print(f"Best move: {best_move} (Score: {score})")
 ```
+
+## Play it
+
+Play against the engine in your browser with a drag-and-drop chessboard (chessboard.js + chess.js, served by a small Flask app).
+
+1. Install dependencies (includes Flask):
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+2. Run the app:
+   ```bash
+   python app.py
+   ```
+
+3. Open [http://localhost:5000](http://localhost:5000) in your browser.
+
+You play White — drag a piece to move. Illegal moves snap back. After each of your moves, the engine replies automatically (alpha-beta search, depth 3, with move ordering and quiescence search). The panel below the board shows the engine's last move, its score, nodes searched, and think time, and the game announces checkmate, stalemate, or a draw. Use **New game** to start over.

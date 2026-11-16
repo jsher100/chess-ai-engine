@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Chess AI Engine</title>
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.css"
+  />
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      background: #202020;
+      color: #e8e8e8;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 32px 16px;
+    }
+    h1 {
+      font-size: 1.4rem;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .subtitle {
+      color: #9a9a9a;
+      margin-bottom: 20px;
+      font-size: 0.9rem;
+    }
+    #board {
+      width: 420px;
+      max-width: 90vw;
+    }
+    .panel {
+      width: 420px;
+      max-width: 90vw;
+      margin-top: 16px;
+      background: #2b2b2b;
+      border-radius: 8px;
+      padding: 14px 16px;
+      box-sizing: border-box;
+    }
+    .status-line {
+      font-size: 0.95rem;
+      margin-bottom: 6px;
+    }
+    .status-line .label {
+      color: #9a9a9a;
+      margin-right: 6px;
+    }
+    #message {
+      font-weight: 600;
+      color: #ffd166;
+      min-height: 1.2em;
+      margin-top: 8px;
+    }
+    #new-game {
+      margin-top: 16px;
+      padding: 8px 18px;
+      font-size: 0.9rem;
+      border: none;
+      border-radius: 6px;
+      background: #3a7afe;
+      color: white;
+      cursor: pointer;
+    }
+    #new-game:hover {
+      background: #2f66d9;
+    }
+    #new-game:disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
+  </style>
+</head>
+<body>
+  <h1>Chess AI Engine</h1>
+  <div class="subtitle">You play White. Drag a piece to move.</div>
+
+  <div id="board"></div>
+
+  <div class="panel">
+    <div class="status-line"><span class="label">Engine's last move:</span><span id="last-move">—</span></div>
+    <div class="status-line"><span class="label">Score:</span><span id="score">—</span></div>
+    <div class="status-line"><span class="label">Nodes searched:</span><span id="nodes">—</span></div>
+    <div class="status-line"><span class="label">Think time:</span><span id="think-time">—</span></div>
+    <div id="message"></div>
+  </div>
+
+  <button id="new-game">New game</button>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.js"></script>
+  <script>
+    var game = new Chess();
+    var board = null;
+    var waitingForEngine = false;
+    var gameOver = false;
+
+    function onDragStart(source, piece) {
+      if (gameOver || waitingForEngine) return false;
+      if (game.game_over()) return false;
+      if (game.turn() !== "w") return false;
+      if (piece.search(/^b/) !== -1) return false;
+    }
+
+    function onDrop(source, target) {
+      var fenBeforeMove = game.fen();
+
+      var move = game.move({
+        from: source,
+        to: target,
+        promotion: "q",
+      });
+
+      if (move === null) return "snapback";
+
+      board.position(game.fen());
+
+      var moveUci = move.from + move.to + (move.promotion ? move.promotion : "");
+      sendMoveToServer(fenBeforeMove, moveUci);
+    }
+
+    function onSnapEnd() {
+      board.position(game.fen());
+    }
+
+    function setWaiting(isWaiting) {
+      waitingForEngine = isWaiting;
+      document.getElementById("new-game").disabled = isWaiting;
+    }
+
+    function formatScore(score) {
+      if (score === null || score === undefined) return "—";
+      return (score > 0 ? "+" : "") + score;
+    }
+
+    function sendMoveToServer(fen, moveUci) {
+      setWaiting(true);
+      document.getElementById("message").textContent = "Engine is thinking…";
+
+      fetch("/move", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fen: fen, move_uci: moveUci }),
+      })
+        .then(function (response) {
+          if (!response.ok) {
+            return response.json().then(function (err) {
+              throw new Error(err.error || "request failed");
+            });
+          }
+          return response.json();
+        })
+        .then(function (data) {
+          game = new Chess(data.fen);
+          board.position(data.fen);
+
+          if (data.engine_move) {
+            document.getElementById("last-move").textContent = data.engine_move;
+          }
+          document.getElementById("score").textContent = formatScore(data.score);
+          document.getElementById("nodes").textContent =
+            data.nodes !== null && data.nodes !== undefined
+              ? data.nodes.toLocaleString()
+              : "—";
+          document.getElementById("think-time").textContent =
+            data.time_ms !== null && data.time_ms !== undefined
+              ? data.time_ms + " ms"
+              : "—";
+
+          if (data.game_over) {
+            gameOver = true;
+            document.getElementById("message").textContent = data.message || "Game over.";
+          } else {
+            document.getElementById("message").textContent = "";
+          }
+
+          setWaiting(false);
+        })
+        .catch(function (err) {
+          // Server rejected the move or something went wrong: resync the
+          // board to the last known-good state before this attempted move.
+          game = new Chess(fen);
+          board.position(fen);
+          document.getElementById("message").textContent = "Error: " + err.message;
+          setWaiting(false);
+        });
+    }
+
+    function newGame() {
+      game = new Chess();
+      board.start();
+      gameOver = false;
+      setWaiting(false);
+      document.getElementById("last-move").textContent = "—";
+      document.getElementById("score").textContent = "—";
+      document.getElementById("nodes").textContent = "—";
+      document.getElementById("think-time").textContent = "—";
+      document.getElementById("message").textContent = "";
+    }
+
+    board = Chessboard("board", {
+      position: "start",
+      draggable: true,
+      pieceTheme:
+        "https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/img/chesspieces/wikipedia/{piece}.png",
+      onDragStart: onDragStart,
+      onDrop: onDrop,
+      onSnapEnd: onSnapEnd,
+    });
+
+    document.getElementById("new-game").addEventListener("click", newGame);
+  </script>
+</body>
+</html>

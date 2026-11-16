@@ -3,3 +3,5 @@
 {"t":0,"agent":"system","event":"keyword_detected","keyword":"tdd"}
 {"t":0,"agent":"system","event":"skill_invoked","skill_name":"oh-my-claudecode:tdd"}
 {"t":0,"agent":"aec94c8","agent_type":"unknown","event":"agent_stop","success":true}
+{"t":0,"agent":"system","event":"skill_invoked","skill_name":"browse"}
+{"t":0,"agent":"a877c44","agent_type":"unknown","event":"agent_stop","success":true}
