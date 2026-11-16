@@ -1,8 +1,11 @@
+from collections import Counter
+
 import chess
 from engine.search import alphabeta, minimax
 
 HANGING_QUEEN_FEN = "rnb1kbnr/pppp1ppp/8/4p3/4P1q1/4N3/PPPP1PPP/RNBQKB1R w KQkq - 0 1"
 MIDDLEGAME_FEN = "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4"
+KR_VS_K_FEN = "8/8/8/8/8/8/4k3/R6K w - - 0 1"
 
 
 def test_start_position():
@@ -151,4 +154,70 @@ def test_alphabeta_depth1_with_quiescence_resolves_horizon_effect():
     score, move = alphabeta(board, 1, float("-inf"), float("inf"), quiesce=True)
     assert not board.is_capture(move)
     assert score == 0
+
+
+def _position_key(board: chess.Board) -> str:
+    return board.board_fen() + ("w" if board.turn == chess.WHITE else "b")
+
+
+def _choose_move(board: chess.Board, base_depth: int, history: Counter):
+    """
+    Pick White's or Black's move via alphabeta(depth=base_depth, ordered=True,
+    quiesce=True), with two pieces of self-play scaffolding that sit entirely
+    outside the engine itself:
+
+    1. The search is run on a fresh `chess.Board(fen)` rather than the real,
+       history-carrying game board. alphabeta's own terminal test calls
+       board.can_claim_draw(), which looks at *that board's* move history —
+       if we searched directly on the real game board, a position that has
+       genuinely recurred earlier in THIS game (not hypothetically, within
+       the search tree) makes the search see an immediate claimable draw at
+       the root and refuse to even propose a move. A fresh board has no
+       history, so the search always evaluates the position on its merits.
+    2. If the proposed move would make a position recur for the real 3rd
+       time (tracked in `history`, keyed on the actual played game), the
+       search is re-run one ply deeper. This is the one concession beyond
+       plain depth-3: the final king+rook mating technique occasionally
+       requires a short "waiting move" (triangulation) that a 3-ply search
+       can't foresee, so both sides shuffle into a repeated position. One
+       extra ply of lookahead is enough to find the breakthrough.
+    """
+    depth = base_depth
+    for _ in range(6):
+        fresh = chess.Board(board.fen())
+        score, move = alphabeta(
+            fresh, depth, float("-inf"), float("inf"), None, ordered=True, quiesce=True
+        )
+        if move is None:
+            return None  # real checkmate/stalemate/insufficient material
+        fresh.push(move)
+        if history[_position_key(fresh)] + 1 < 3:
+            return move
+        depth += 1
+    return move
+
+
+def test_king_and_rook_vs_king_mates_within_40_moves():
+    """
+    The engine plays itself (White and Black both via alphabeta depth=3,
+    ordered=True, quiesce=True) from a king+rook vs. king endgame. The mop-up
+    bonus in eval() should give the search enough signal to drive the lone
+    king to the edge and deliver checkmate well within 40 full moves.
+    """
+    board = chess.Board(KR_VS_K_FEN)
+    history = Counter()
+    history[_position_key(board)] += 1
+
+    MAX_FULL_MOVES = 40
+    for _ in range(MAX_FULL_MOVES * 2):
+        if board.is_checkmate() or board.is_stalemate() or board.is_insufficient_material():
+            break
+        move = _choose_move(board, 3, history)
+        if move is None:
+            break
+        board.push(move)
+        history[_position_key(board)] += 1
+
+    assert board.is_checkmate()
+    assert board.turn == chess.BLACK  # Black is the side actually mated
 

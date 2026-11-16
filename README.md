@@ -115,6 +115,8 @@ Play against the engine in your browser with a drag-and-drop chessboard (chessbo
    python app.py
    ```
 
-3. Open [http://localhost:5000](http://localhost:5000) in your browser.
+3. Open [http://localhost:5001](http://localhost:5001) in your browser.
+
+   (Port 5001, not 5000 — on macOS, port 5000 is commonly claimed by the ControlCenter AirPlay Receiver service, which can swallow requests meant for this app.)
 
 You play White — drag a piece to move. Illegal moves snap back. After each of your moves, the engine replies automatically (alpha-beta search, depth 3, with move ordering and quiescence search). The panel below the board shows the engine's last move, its score, nodes searched, and think time, and the game announces checkmate, stalemate, or a draw. Use **New game** to start over.

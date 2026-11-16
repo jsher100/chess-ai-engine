@@ -102,4 +102,7 @@ def move():
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    # Port 5000 is avoided: on macOS it's commonly claimed by the
+    # ControlCenter AirPlay Receiver service, which can swallow requests
+    # meant for this app.
+    app.run(debug=True, port=5001)
