@@ -2,6 +2,7 @@ import chess
 from engine.search import alphabeta, minimax
 
 HANGING_QUEEN_FEN = "rnb1kbnr/pppp1ppp/8/4p3/4P1q1/4N3/PPPP1PPP/RNBQKB1R w KQkq - 0 1"
+MIDDLEGAME_FEN = "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4"
 
 
 def test_start_position():
@@ -86,4 +87,41 @@ def test_alphabeta_visits_fewer_nodes_hanging_queen():
     alphabeta(board, 3, float("-inf"), float("inf"), ab_nodes)
 
     assert ab_nodes[0] < mm_nodes[0]
+
+
+def test_ordered_alphabeta_matches_minimax_score_start_position():
+    """Ordered alphabeta returns the same score as minimax on the start position."""
+    board = chess.Board()
+    mm_score, _ = minimax(board, 3)
+    ab_score, _ = alphabeta(board, 3, float("-inf"), float("inf"), ordered=True)
+    assert ab_score == mm_score
+
+
+def test_ordered_alphabeta_matches_minimax_score_hanging_queen():
+    """Ordered alphabeta returns the same score as minimax on the hanging-queen FEN."""
+    board = chess.Board(HANGING_QUEEN_FEN)
+    mm_score, _ = minimax(board, 3)
+    ab_score, _ = alphabeta(board, 3, float("-inf"), float("inf"), ordered=True)
+    assert ab_score == mm_score
+
+
+def test_ordered_alphabeta_matches_minimax_score_middlegame():
+    """Ordered alphabeta returns the same score as minimax on the middlegame FEN."""
+    board = chess.Board(MIDDLEGAME_FEN)
+    mm_score, _ = minimax(board, 3)
+    ab_score, _ = alphabeta(board, 3, float("-inf"), float("inf"), ordered=True)
+    assert ab_score == mm_score
+
+
+def test_ordered_alphabeta_visits_fewer_nodes_than_unordered_middlegame():
+    """Ordered alphabeta visits fewer nodes than unordered alphabeta on the middlegame FEN."""
+    board = chess.Board(MIDDLEGAME_FEN)
+
+    unordered_nodes = [0]
+    alphabeta(board, 3, float("-inf"), float("inf"), unordered_nodes, ordered=False)
+
+    ordered_nodes = [0]
+    alphabeta(board, 3, float("-inf"), float("inf"), ordered_nodes, ordered=True)
+
+    assert ordered_nodes[0] < unordered_nodes[0]
 

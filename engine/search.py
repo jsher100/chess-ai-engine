@@ -1,6 +1,6 @@
 from typing import List, Optional, Tuple
 import chess
-from engine.eval import eval
+from engine.eval import eval, PIECE_VALUES
 
 
 def minimax(
@@ -62,12 +62,36 @@ def minimax(
         return (int(best_score), best_move)
 
 
+def order_moves(board: chess.Board) -> List[chess.Move]:
+    """
+    Order legal moves for alpha-beta: captures first (sorted by MVV-LVA —
+    most valuable victim first, ties broken by least valuable attacker
+    first), then all non-captures.
+    """
+
+    def mvv_lva_key(move: chess.Move) -> Tuple[int, int]:
+        if board.is_en_passant(move):
+            victim_value = PIECE_VALUES[chess.PAWN]
+        else:
+            victim = board.piece_at(move.to_square)
+            victim_value = PIECE_VALUES[victim.piece_type] if victim else 0
+        attacker = board.piece_at(move.from_square)
+        attacker_value = PIECE_VALUES[attacker.piece_type]
+        return (-victim_value, attacker_value)
+
+    captures = [move for move in board.legal_moves if board.is_capture(move)]
+    non_captures = [move for move in board.legal_moves if not board.is_capture(move)]
+    captures.sort(key=mvv_lva_key)
+    return captures + non_captures
+
+
 def alphabeta(
     board: chess.Board,
     depth: int,
     alpha: float,
     beta: float,
     node_count: Optional[List[int]] = None,
+    ordered: bool = False,
 ) -> Tuple[int, Optional[chess.Move]]:
     """
     Minimax search with alpha-beta pruning.
@@ -79,6 +103,10 @@ def alphabeta(
 
     If node_count is given (a single-element list used as a mutable counter),
     it is incremented once for every position visited.
+
+    If ordered=True, moves are generated via order_moves() (MVV-LVA captures
+    first, then non-captures) instead of board.legal_moves order, so that
+    strong moves are searched first and more branches get pruned.
     """
     if node_count is not None:
         node_count[0] += 1
@@ -99,12 +127,14 @@ def alphabeta(
     if depth == 0:
         return (eval(board), None)
 
+    moves = order_moves(board) if ordered else board.legal_moves
+
     if board.turn == chess.WHITE:
         best_score = float("-inf")
         best_move = None
-        for move in board.legal_moves:
+        for move in moves:
             board.push(move)
-            score, _ = alphabeta(board, depth - 1, alpha, beta, node_count)
+            score, _ = alphabeta(board, depth - 1, alpha, beta, node_count, ordered)
             board.pop()
             if score > best_score:
                 best_score = score
@@ -116,9 +146,9 @@ def alphabeta(
     else:
         best_score = float("inf")
         best_move = None
-        for move in board.legal_moves:
+        for move in moves:
             board.push(move)
-            score, _ = alphabeta(board, depth - 1, alpha, beta, node_count)
+            score, _ = alphabeta(board, depth - 1, alpha, beta, node_count, ordered)
             board.pop()
             if score < best_score:
                 best_score = score

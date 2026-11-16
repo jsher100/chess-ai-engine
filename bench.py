@@ -4,24 +4,44 @@ import chess
 
 from engine.search import alphabeta, minimax
 
+MIDDLEGAME_FEN = "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4"
+
+
+def bench_minimax(board: chess.Board, depth: int):
+    nodes = [0]
+    start = time.perf_counter()
+    score, move = minimax(board, depth, nodes)
+    elapsed = time.perf_counter() - start
+    return score, move, nodes[0], elapsed
+
+
+def bench_alphabeta(board: chess.Board, depth: int, ordered: bool):
+    nodes = [0]
+    start = time.perf_counter()
+    score, move = alphabeta(
+        board, depth, float("-inf"), float("inf"), nodes, ordered
+    )
+    elapsed = time.perf_counter() - start
+    return score, move, nodes[0], elapsed
+
+
+def report(label: str, score, move, nodes: int, elapsed: float) -> None:
+    print(f"  {label:<22} time={elapsed:.4f}s  nodes={nodes}  score={score}  move={move}")
+
 
 def main() -> None:
     depth = 3
-    board = chess.Board()
-
-    mm_nodes = [0]
-    start = time.perf_counter()
-    mm_score, mm_move = minimax(board, depth, mm_nodes)
-    mm_time = time.perf_counter() - start
-
-    ab_nodes = [0]
-    start = time.perf_counter()
-    ab_score, ab_move = alphabeta(board, depth, float("-inf"), float("inf"), ab_nodes)
-    ab_time = time.perf_counter() - start
 
     print(f"Start position, depth {depth}")
-    print(f"  minimax:   time={mm_time:.4f}s  nodes={mm_nodes[0]}  score={mm_score}  move={mm_move}")
-    print(f"  alphabeta: time={ab_time:.4f}s  nodes={ab_nodes[0]}  score={ab_score}  move={ab_move}")
+    board = chess.Board()
+    report("minimax:", *bench_minimax(board, depth))
+    report("alphabeta:", *bench_alphabeta(board, depth, ordered=False))
+
+    print(f"\nMiddlegame position, depth {depth}")
+    board = chess.Board(MIDDLEGAME_FEN)
+    report("minimax:", *bench_minimax(board, depth))
+    report("alphabeta (unordered):", *bench_alphabeta(board, depth, ordered=False))
+    report("alphabeta (ordered):", *bench_alphabeta(board, depth, ordered=True))
 
 
 if __name__ == "__main__":
