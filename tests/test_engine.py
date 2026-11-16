@@ -1,5 +1,7 @@
 import chess
-from engine.search import minimax
+from engine.search import alphabeta, minimax
+
+HANGING_QUEEN_FEN = "rnb1kbnr/pppp1ppp/8/4p3/4P1q1/4N3/PPPP1PPP/RNBQKB1R w KQkq - 0 1"
 
 
 def test_start_position():
@@ -42,4 +44,46 @@ def test_hanging_queen():
     score, move_prompt = minimax(board_prompt, 3)
     assert move_prompt is not None
     assert move_prompt in board_prompt.legal_moves
+
+
+def test_alphabeta_matches_minimax_score_start_position():
+    """alphabeta(board, 3, ...) returns the same score as minimax(board, 3) on the start position."""
+    board = chess.Board()
+    mm_score, _ = minimax(board, 3)
+    ab_score, _ = alphabeta(board, 3, float("-inf"), float("inf"))
+    assert ab_score == mm_score
+
+
+def test_alphabeta_matches_minimax_score_hanging_queen():
+    """alphabeta(board, 3, ...) returns the same score as minimax(board, 3) on the hanging-queen FEN."""
+    board = chess.Board(HANGING_QUEEN_FEN)
+    mm_score, _ = minimax(board, 3)
+    ab_score, _ = alphabeta(board, 3, float("-inf"), float("inf"))
+    assert ab_score == mm_score
+
+
+def test_alphabeta_visits_fewer_nodes_start_position():
+    """alphabeta visits strictly fewer nodes than minimax at depth 3 on the start position."""
+    board = chess.Board()
+
+    mm_nodes = [0]
+    minimax(board, 3, mm_nodes)
+
+    ab_nodes = [0]
+    alphabeta(board, 3, float("-inf"), float("inf"), ab_nodes)
+
+    assert ab_nodes[0] < mm_nodes[0]
+
+
+def test_alphabeta_visits_fewer_nodes_hanging_queen():
+    """alphabeta visits strictly fewer nodes than minimax at depth 3 on the hanging-queen FEN."""
+    board = chess.Board(HANGING_QUEEN_FEN)
+
+    mm_nodes = [0]
+    minimax(board, 3, mm_nodes)
+
+    ab_nodes = [0]
+    alphabeta(board, 3, float("-inf"), float("inf"), ab_nodes)
+
+    assert ab_nodes[0] < mm_nodes[0]
 
